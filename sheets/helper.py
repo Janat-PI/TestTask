@@ -7,7 +7,7 @@ def try_error(func):
 
     def wrapper(self, table, range):
         try:
-            func(self, table, range)
+            return func(self, table, range)
         except HttpError as e:
             print(e)
     

@@ -1,11 +1,16 @@
 import os.path
 from typing import Any
+from datetime import datetime
+from decimal import Decimal
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+import requests
+import xmltodict
 
 from sheets.helper import try_error
 
@@ -60,7 +65,7 @@ class Sheet(AbstractSheet):
         return service
     
     @try_error
-    def read_values(self, table, range=None):
+    def read_values(self, table, range=None) -> list:
         service = self.build_service()
         sheet = service.spreadsheets()
         result = sheet.values().get(
@@ -68,8 +73,8 @@ class Sheet(AbstractSheet):
             range=range
             ).execute()
         values = result.get('values', [])
-        
-        self.show(values)
+
+        return values
 
     def get(self, spreadsheetId):
         service = self.build_service()
@@ -96,8 +101,30 @@ class Sheet(AbstractSheet):
 
     def show(self, data):
         for i in data:
-            print(*i)
+            print(i)
 
     def read(self):
         pass
 
+
+def get_to_day_date() -> str:
+    to_day_date = datetime.now().strftime("%d/%m/%Y")
+    return to_day_date
+
+
+def get_response(url: str) -> dict:
+    response = requests.get(url).content
+    data = xmltodict.parse(response)
+    return data
+
+
+def get_course_price(course: str = "USD") -> Decimal:
+    
+    date = get_to_day_date()
+    URL = f"https://www.cbr.ru/scripts/XML_daily.asp?date_req={date}"
+
+    data = get_response(URL)
+    new_data: list[dict[str, str]] = data.get("ValCurs").get("Valute")
+    USD: str = new_data[10].get("Value").replace(",", ".")
+
+    return Decimal(USD)
