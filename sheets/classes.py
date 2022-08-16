@@ -1,6 +1,6 @@
 import os.path
 from typing import Any
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 from google.auth.transport.requests import Request
@@ -12,7 +12,7 @@ from googleapiclient.errors import HttpError
 import requests
 import xmltodict
 
-from sheets.helper import try_error
+from sheets.helper import try_error, SheetData
 
 
 from sheets.abstractclasses import AbstractSheet
@@ -65,16 +65,30 @@ class Sheet(AbstractSheet):
         return service
     
     @try_error
-    def read_values(self, table, range=None) -> list:
+    def read_values(self, spreadsheetId: str, range=None) -> list[SheetData]:
         service = self.build_service()
         sheet = service.spreadsheets()
         result = sheet.values().get(
-            spreadsheetId=table, 
+            spreadsheetId=spreadsheetId, 
             range=range
             ).execute()
         values = result.get('values', [])
 
-        return values
+        data = []
+
+        info = (1, "title on sheets table")
+
+        for val in values[info[0]:]:
+            id, order_id, price_on_usd, date = val
+           
+            data.append(SheetData(
+                id=int(id),
+                order_id=int(order_id),
+                price_on_usd=Decimal(price_on_usd),
+                date_delivery = str_to_date(date) 
+            ))
+
+        return data
 
     def get(self, spreadsheetId):
         service = self.build_service()
@@ -86,11 +100,11 @@ class Sheet(AbstractSheet):
         print(result)
 
     @try_error
-    def read_patch_get(self, table, range=None):
+    def read_patch_get(self, spreadsheetId, range=None):
         service = self.build_service()
         sheet = service.spreadsheets()
         result = sheet.values().batchGet(
-            spreadsheetId=table, ranges=range
+            spreadsheetId=spreadsheetId, ranges=range
         ).execute()
         print(result)
 
@@ -116,6 +130,16 @@ def get_response(url: str) -> dict:
     response = requests.get(url).content
     data = xmltodict.parse(response)
     return data
+
+def str_to_date(date_: str) -> date:
+    """
+    date: string("23.05.2022"):
+    return date(2022-05-23)
+    """
+    day, month, year = map(int, date_.split("."))
+    # strftime("%d/%m/%Y")
+    date_delivery = date(day=day, month=month, year=year)
+    return date_delivery
 
 
 def get_course_price(course: str = "USD") -> Decimal:
